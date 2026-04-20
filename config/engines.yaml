@@ -1,0 +1,86 @@
+host: "0.0.0.0"
+port: 3000
+output_dir: "./outputs"
+base_url: "http://localhost:3000"
+
+engines:
+  mesolitica:
+    type: command
+    enabled: true
+    description: "Mesolitica command backend"
+    command_template: "bash scripts/providers/run_engine.sh \"mesolitica\" \"{text}\" \"{voice}\" \"{language}\" \"{output}\" \"{format}\""
+    timeout_seconds: 120
+    voices:
+      - id: "default"
+        language: "ms"
+
+  kokoro:
+    type: command
+    enabled: true
+    description: "Kokoro command backend"
+    command_template: "bash scripts/providers/run_engine.sh \"kokoro\" \"{text}\" \"{voice}\" \"{language}\" \"{output}\" \"{format}\""
+    timeout_seconds: 120
+    voices:
+      - id: "af_alloy"
+        language: "en"
+
+  piper:
+    type: command
+    enabled: true
+    description: "Piper CLI backend"
+    command_template: "bash scripts/run_piper.sh \"{text}\" \"{voice}\" \"{output}\""
+    timeout_seconds: 90
+    voices:
+      - id: "en_US-lessac-medium"
+        language: "en"
+      - id: "ms_MY-farid-medium"
+        language: "ms"
+
+  melotts:
+    type: command
+    enabled: true
+    description: "MeloTTS command backend"
+    command_template: "bash scripts/providers/run_engine.sh \"melotts\" \"{text}\" \"{voice}\" \"{language}\" \"{output}\" \"{format}\""
+    timeout_seconds: 120
+
+  xtts_v2:
+    type: command
+    enabled: true
+    description: "Coqui XTTS v2 command backend"
+    command_template: "bash scripts/providers/run_engine.sh \"xtts_v2\" \"{text}\" \"{voice}\" \"{language}\" \"{output}\" \"{format}\""
+    timeout_seconds: 180
+
+  fish_speech:
+    type: command
+    enabled: true
+    description: "Fish Speech command backend"
+    command_template: "bash scripts/providers/run_engine.sh \"fish_speech\" \"{text}\" \"{voice}\" \"{language}\" \"{output}\" \"{format}\""
+    timeout_seconds: 180
+
+  chatterbox:
+    type: command
+    enabled: true
+    description: "Chatterbox command backend"
+    command_template: "bash scripts/providers/run_engine.sh \"chatterbox\" \"{text}\" \"{voice}\" \"{language}\" \"{output}\" \"{format}\""
+    timeout_seconds: 180
+
+  vibevoice:
+    type: command
+    enabled: true
+    description: "VibeVoice command backend"
+    command_template: "bash scripts/providers/run_engine.sh \"vibevoice\" \"{text}\" \"{voice}\" \"{language}\" \"{output}\" \"{format}\""
+    timeout_seconds: 120
+
+  tinytts:
+    type: command
+    enabled: true
+    description: "TinyTTS command backend"
+    command_template: "bash scripts/providers/run_engine.sh \"tinytts\" \"{text}\" \"{voice}\" \"{language}\" \"{output}\" \"{format}\""
+    timeout_seconds: 90
+
+  voxtral:
+    type: command
+    enabled: true
+    description: "Voxtral command backend"
+    command_template: "bash scripts/providers/run_engine.sh \"voxtral\" \"{text}\" \"{voice}\" \"{language}\" \"{output}\" \"{format}\""
+    timeout_seconds: 180

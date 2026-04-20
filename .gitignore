@@ -1,17 +1,7 @@
-venv/
 .venv/
+venv/
 __pycache__/
 *.pyc
-*.pyo
-.pytest_cache/
-.DS_Store
-
-# Local caches and downloaded model artifacts.
-.cache/
-models/
-checkpoints/
-
-# OS/editor noise.
+outputs/
 .env
-.env.*
 *.log

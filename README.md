@@ -1,149 +1,70 @@
-# Voxpro Meso TTS
+# Multi-TTS Stack for WSL2 (Mesolitica + Kokoro + VibeVoice + Voxtral)
 
-Small Flask API for Mesolitica TTS using `malaya-speech` VITS voices.
+This repo now contains a Docker-based multi-provider TTS deployment for WSL2 Ubuntu with NVIDIA GPU access.
 
-## What To Put In GitHub
+## Providers
 
-Commit only the project files:
+- `Mesolitica` (existing Flask service, bridged to OpenAI-style API)
+- `Kokoro` (`hexgrad/Kokoro-82M`)
+- `VibeVoice-Realtime-0.5B` (custom FastAPI wrapper)
+- `Voxtral-4B-TTS-2603` (vLLM-Omni style server + concurrency cap)
 
-- `server.py`
-- `requirements.txt`
-- `README.md`
-- `.gitignore`
-- `run.sh`
-- `healthcheck.sh`
-- `deploy/mesolitica-tts.service`
+## Service Ports
 
-Do not commit:
+- Mesolitica compat: `5001`
+- Kokoro: `5002`
+- VibeVoice: `5003`
+- Voxtral: `5004`
+- SIPHON router: `5010`
+- Nginx ingress: `8080`
+- Redis: `6379`
 
-- `venv/`
-- downloaded Hugging Face caches
-- Ubuntu system folders
-- logs or temporary files
-
-The voice models are downloaded automatically on first run and are usually stored under:
-
-- `~/.cache/huggingface/`
-
-## Server Endpoints
-
-- `GET /`
-- `GET /health`
-- `GET /voices`
-- `POST /tts`
-
-## Supported Voices
-
-- `yasmin`
-- `haqkiem`
-- `osman`
-- `husein`
-
-## Ubuntu Deployment
-
-These steps are for your colleague on the Proxmox or RDP Ubuntu server.
-
-### 1. Clone the repo
+## One-Shot Setup (WSL2)
 
 ```bash
-git clone <your-github-repo-url> mesolitica-tts
-cd mesolitica-tts
+cd /home/andy/mesolitica-tts
+./scripts/wsl2_setup_stack.sh
 ```
 
-### 2. Install system packages
+Health:
 
 ```bash
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip
+./scripts/wsl2_healthcheck_stack.sh
 ```
 
-### 3. Create a virtual environment
+## Nginx Routes
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-python -m pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt
-```
+- `/tts/mesolitica`
+- `/tts/kokoro`
+- `/tts/vibevoice`
+- `/tts/voxtral`
+- `/tts/health`
 
-### 4. Run the server
+## SIPHON Routing Logic
 
-```bash
-./run.sh
-```
+The router in [siphon/tts_router.py](/home/andy/mesolitica-tts/siphon/tts_router.py) applies:
 
-By default it listens on `0.0.0.0:5500`.
+- Malay/BM -> Mesolitica
+- Realtime requests -> VibeVoice
+- Premium or cloning requests -> Voxtral
+- Default -> Kokoro
 
-### 5. Verify it is up
+Voxtral concurrency is capped to 3 with Redis-coordinated slots.
 
-```bash
-./healthcheck.sh
-```
+## Key Files
 
-You should get a JSON response from `/health`.
+- Compose stack: [docker-compose.yml](/home/andy/mesolitica-tts/docker-compose.yml)
+- SIPHON router API: [siphon/server.py](/home/andy/mesolitica-tts/siphon/server.py)
+- Router logic: [siphon/tts_router.py](/home/andy/mesolitica-tts/siphon/tts_router.py)
+- Nginx config: [docker/nginx/conf.d/default.conf](/home/andy/mesolitica-tts/docker/nginx/conf.d/default.conf)
+- Mesolitica bridge: [services/mesolitica_compat/main.py](/home/andy/mesolitica-tts/services/mesolitica_compat/main.py)
+- VibeVoice wrapper: [services/vibevoice/main.py](/home/andy/mesolitica-tts/services/vibevoice/main.py)
+- Deployment guide: [docs/DEPLOYMENT.md](/home/andy/mesolitica-tts/docs/DEPLOYMENT.md)
+- Troubleshooting guide: [docs/TROUBLESHOOTING.md](/home/andy/mesolitica-tts/docs/TROUBLESHOOTING.md)
 
-## Systemd Service
+## Important Notes
 
-If your colleague wants it to start automatically on Ubuntu:
+- `services/vibevoice/main.py` currently includes placeholder synthesis logic to keep the API contract stable. Replace with real model inference for production audio quality.
+- The Voxtral container image/flags may need pinning based on your chosen vLLM-Omni release.
+- Set `.env` value `MESOLITICA_BASE_URL` to your existing Mesolitica Flask endpoint.
 
-### 1. Review the service file
-
-Open:
-
-- `deploy/mesolitica-tts.service`
-
-Update these values if needed:
-
-- `User=andy`
-- `WorkingDirectory=/home/andy/mesolitica-tts`
-- `ExecStart=/home/andy/mesolitica-tts/run.sh`
-
-### 2. Install the service
-
-```bash
-sudo cp deploy/mesolitica-tts.service /etc/systemd/system/mesolitica-tts.service
-sudo systemctl daemon-reload
-sudo systemctl enable mesolitica-tts
-sudo systemctl start mesolitica-tts
-```
-
-### 3. Check service status
-
-```bash
-sudo systemctl status mesolitica-tts
-journalctl -u mesolitica-tts -f
-```
-
-## Environment Variables
-
-- `MESOLITICA_TTS_HOST` default: `0.0.0.0`
-- `MESOLITICA_TTS_PORT` default: `5500`
-- `MESOLITICA_TTS_VOICE` default: `yasmin`
-- `MESOLITICA_TTS_FORMAT` default: `wav`
-- `MESOLITICA_TTS_CHUNK_SIZE` default: `8192`
-- `MESOLITICA_TTS_PRELOAD` default: `true`
-
-Example:
-
-```bash
-MESOLITICA_TTS_PORT=5500 MESOLITICA_TTS_VOICE=yasmin ./run.sh
-```
-
-## First Run Note
-
-On first run, `malaya-speech` downloads the required voice and vocoder files from Hugging Face. The server must have internet access for that initial download.
-
-After the models are cached, later runs can reuse the local cache.
-
-## API Example
-
-```bash
-curl -X POST http://127.0.0.1:5500/tts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "Hello from Mesolitica TTS",
-    "voice": "yasmin",
-    "format": "wav"
-  }' \
-  --output sample.wav
-```

@@ -1,0 +1,156 @@
+version: "3.9"
+
+name: mesolitica-multi-tts
+
+services:
+  mesolitica_compat:
+    build:
+      context: .
+      dockerfile: docker/mesolitica-compat/Dockerfile
+    container_name: mesolitica_compat
+    environment:
+      - MESOLITICA_BASE_URL=${MESOLITICA_BASE_URL:-http://host.docker.internal:5001}
+      - MESOLITICA_TIMEOUT_SECONDS=120
+    ports:
+      - "5001:5001"
+    networks:
+      - tts_net
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
+    container_name: kokoro
+    environment:
+      - MODEL_ID=hexgrad/Kokoro-82M
+      - PORT=5002
+    ports:
+      - "5002:5002"
+    networks:
+      - tts_net
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  vibevoice:
+    build:
+      context: .
+      dockerfile: docker/vibevoice/Dockerfile
+    container_name: vibevoice
+    environment:
+      - MODEL_ID=microsoft/VibeVoice-Realtime-0.5B
+      - PORT=5003
+      - DEVICE=cuda
+      - TORCH_DTYPE=float16
+    ports:
+      - "5003:5003"
+    networks:
+      - tts_net
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  voxtral:
+    image: ghcr.io/vllm-project/vllm-omni-openai:latest
+    container_name: voxtral
+    environment:
+      - MODEL_ID=mistralai/Voxtral-4B-TTS-2603
+      - PORT=5004
+      - MAX_CONCURRENCY=3
+      - REDIS_URL=redis://redis:6379/0
+    command:
+      - "--model"
+      - "mistralai/Voxtral-4B-TTS-2603"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "5004"
+      - "--max-num-seqs"
+      - "3"
+    ports:
+      - "5004:5004"
+    depends_on:
+      - redis
+    networks:
+      - tts_net
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  redis:
+    image: redis:7-alpine
+    container_name: tts_redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - tts_net
+    restart: unless-stopped
+
+  siphon_router:
+    build:
+      context: .
+      dockerfile: docker/siphon-router/Dockerfile
+    container_name: siphon_router
+    environment:
+      - MESOLITICA_URL=http://mesolitica_compat:5001/v1/audio/speech
+      - KOKORO_URL=http://kokoro:5002/v1/audio/speech
+      - VIBEVOICE_URL=http://vibevoice:5003/v1/audio/speech
+      - VOXTRAL_URL=http://voxtral:5004/v1/audio/speech
+      - REDIS_URL=redis://redis:6379/0
+      - ROUTER_PORT=5010
+      - VOXTRAL_MAX_CONCURRENCY=3
+    ports:
+      - "5010:5010"
+    depends_on:
+      - mesolitica_compat
+      - kokoro
+      - vibevoice
+      - voxtral
+      - redis
+    networks:
+      - tts_net
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: tts_nginx
+    depends_on:
+      - mesolitica_compat
+      - kokoro
+      - vibevoice
+      - voxtral
+      - siphon_router
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - tts_net
+    restart: unless-stopped
+
+networks:
+  tts_net:
+    driver: bridge
+
+volumes:
+  redis_data:

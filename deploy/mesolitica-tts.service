@@ -1,16 +1,12 @@
 [Unit]
-Description=Mesolitica TTS Flask API
+Description=Voxpro Multi-Engine TTS Gateway
 After=network.target
 
 [Service]
 Type=simple
 User=andy
 WorkingDirectory=/home/andy/mesolitica-tts
-Environment=MESOLITICA_TTS_HOST=0.0.0.0
-Environment=MESOLITICA_TTS_PORT=5500
-Environment=MESOLITICA_TTS_VOICE=yasmin
-Environment=MESOLITICA_TTS_FORMAT=wav
-Environment=MESOLITICA_TTS_PRELOAD=true
+Environment=TTS_CONFIG_PATH=/home/andy/mesolitica-tts/config/engines.yaml
 ExecStart=/home/andy/mesolitica-tts/run.sh
 Restart=always
 RestartSec=5
