@@ -10,6 +10,9 @@ Commit only the project files:
 - `requirements.txt`
 - `README.md`
 - `.gitignore`
+- `run.sh`
+- `healthcheck.sh`
+- `deploy/mesolitica-tts.service`
 
 Do not commit:
 
@@ -66,11 +69,50 @@ pip install -r requirements.txt
 ### 4. Run the server
 
 ```bash
-source venv/bin/activate
-python server.py
+./run.sh
 ```
 
 By default it listens on `0.0.0.0:5500`.
+
+### 5. Verify it is up
+
+```bash
+./healthcheck.sh
+```
+
+You should get a JSON response from `/health`.
+
+## Systemd Service
+
+If your colleague wants it to start automatically on Ubuntu:
+
+### 1. Review the service file
+
+Open:
+
+- `deploy/mesolitica-tts.service`
+
+Update these values if needed:
+
+- `User=andy`
+- `WorkingDirectory=/home/andy/mesolitica-tts`
+- `ExecStart=/home/andy/mesolitica-tts/run.sh`
+
+### 2. Install the service
+
+```bash
+sudo cp deploy/mesolitica-tts.service /etc/systemd/system/mesolitica-tts.service
+sudo systemctl daemon-reload
+sudo systemctl enable mesolitica-tts
+sudo systemctl start mesolitica-tts
+```
+
+### 3. Check service status
+
+```bash
+sudo systemctl status mesolitica-tts
+journalctl -u mesolitica-tts -f
+```
 
 ## Environment Variables
 
@@ -84,7 +126,7 @@ By default it listens on `0.0.0.0:5500`.
 Example:
 
 ```bash
-MESOLITICA_TTS_PORT=5500 MESOLITICA_TTS_VOICE=yasmin python server.py
+MESOLITICA_TTS_PORT=5500 MESOLITICA_TTS_VOICE=yasmin ./run.sh
 ```
 
 ## First Run Note
