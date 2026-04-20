@@ -1,27 +1,107 @@
-# Voxpro-Meso-TTS
+# Voxpro Meso TTS
 
-A TTS server using Mesolitica models.
+Small Flask API for Mesolitica TTS using `malaya-speech` VITS voices.
 
-## Installation
+## What To Put In GitHub
 
-1. Clone the repo:
-   git clone https://github.com/andrew-bot-1994/Voxpro-Meso-TTS.git
-   cd Voxpro-Meso-TTS
+Commit only the project files:
 
-2. Create virtual environment:
-   python3 -m venv venv
-   source venv/bin/activate
+- `server.py`
+- `requirements.txt`
+- `README.md`
+- `.gitignore`
 
-3. Install dependencies:
-   pip install -r requirements.txt
+Do not commit:
 
-4. Run the server:
-   python server.py
+- `venv/`
+- downloaded Hugging Face caches
+- Ubuntu system folders
+- logs or temporary files
 
-## Usage
+The voice models are downloaded automatically on first run and are usually stored under:
 
-Access the server at http://localhost:3000
+- `~/.cache/huggingface/`
 
-## Usage
+## Server Endpoints
 
-Access the server at http://localhost:3000
+- `GET /`
+- `GET /health`
+- `GET /voices`
+- `POST /tts`
+
+## Supported Voices
+
+- `yasmin`
+- `haqkiem`
+- `osman`
+- `husein`
+
+## Ubuntu Deployment
+
+These steps are for your colleague on the Proxmox or RDP Ubuntu server.
+
+### 1. Clone the repo
+
+```bash
+git clone <your-github-repo-url> mesolitica-tts
+cd mesolitica-tts
+```
+
+### 2. Install system packages
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip
+```
+
+### 3. Create a virtual environment
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
+```
+
+### 4. Run the server
+
+```bash
+source venv/bin/activate
+python server.py
+```
+
+By default it listens on `0.0.0.0:5500`.
+
+## Environment Variables
+
+- `MESOLITICA_TTS_HOST` default: `0.0.0.0`
+- `MESOLITICA_TTS_PORT` default: `5500`
+- `MESOLITICA_TTS_VOICE` default: `yasmin`
+- `MESOLITICA_TTS_FORMAT` default: `wav`
+- `MESOLITICA_TTS_CHUNK_SIZE` default: `8192`
+- `MESOLITICA_TTS_PRELOAD` default: `true`
+
+Example:
+
+```bash
+MESOLITICA_TTS_PORT=5500 MESOLITICA_TTS_VOICE=yasmin python server.py
+```
+
+## First Run Note
+
+On first run, `malaya-speech` downloads the required voice and vocoder files from Hugging Face. The server must have internet access for that initial download.
+
+After the models are cached, later runs can reuse the local cache.
+
+## API Example
+
+```bash
+curl -X POST http://127.0.0.1:5500/tts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Hello from Mesolitica TTS",
+    "voice": "yasmin",
+    "format": "wav"
+  }' \
+  --output sample.wav
+```
